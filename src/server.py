@@ -9,9 +9,10 @@ import os
 from pathlib import Path
 import re
 import threading
+import uuid
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 import webbrowser
 
 from image_api import edit, generate, load_env
@@ -75,12 +76,92 @@ def load_history() -> list[dict]:
         return []
 
 
-def record_image(path: Path, prompt: str, action: str) -> None:
+def record_image(path: Path, prompt: str, action: str, *, sources: list[Path] | None = None,
+                 references: list[Path] | None = None, context: list[str] | None = None) -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     history = load_history()
     history.append({"path": str(path.resolve()), "prompt": prompt, "action": action,
-                    "created": datetime.now().isoformat(timespec="seconds")})
+                    "sources": [str(p.resolve()) for p in (sources or [])],
+                    "references": [str(p.resolve()) for p in (references or [])],
+                    "context": context or [], "created": datetime.now().isoformat(timespec="seconds")})
     (OUT / "image_history.json").write_text(json.dumps(history[-100:], ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def history_chain(name: str) -> list[dict]:
+    if Path(name).name != name:
+        raise ValueError("图片名称无效。")
+    target = (OUT / name).resolve()
+    if target.parent != OUT.resolve() or not target.is_file():
+        raise ValueError("找不到这张图片。")
+    rows = load_history()
+    by_path = {Path(row.get("path", "")).resolve(): row for row in rows if row.get("path")}
+    chain: list[dict] = []
+    seen: set[Path] = set()
+    current = target
+    while current not in seen:
+        seen.add(current)
+        row = by_path.get(current)
+        if row is None:
+            if not chain:
+                return []
+            chain.append({"name": current.name, "action": "source", "prompt": "原始输入图片（无历史记录）", "references": []})
+            break
+        chain.append({"name": current.name, "action": row.get("action", "unknown"),
+                      "prompt": row.get("prompt", ""), "created": row.get("created", ""),
+                      "references": [Path(p).name for p in row.get("references", [])],
+                      "context": row.get("context", [])})
+        sources = row.get("sources", [])
+        if not sources:
+            break
+        current = Path(sources[0]).resolve()
+    return chain
+
+
+def history_context(source: Path) -> list[str]:
+    rows = load_history()
+    context: list[str] = []
+    current = source.resolve()
+    seen = {current}
+    for _ in range(3):
+        row = next((r for r in reversed(rows) if r.get("path") and Path(r["path"]).resolve() == current), None)
+        if not row:
+            break
+        previous_prompt = str(row.get("prompt", "")).strip()
+        if previous_prompt:
+            context.append(f"{Path(row['path']).name}: {previous_prompt}")
+        sources = row.get("sources", [])
+        if not sources:
+            break
+        current = Path(sources[0]).resolve()
+        if current in seen:
+            break
+        seen.add(current)
+    return context
+
+
+def decode_upload(uploaded: dict, prefix: str) -> Path:
+    filename = Path(str(uploaded.get("name", "upload.png"))).name
+    suffix = Path(filename).suffix.lower()
+    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise ValueError("只支持 PNG、JPG 或 WebP 图片。")
+    try:
+        blob = base64.b64decode(uploaded.get("data", ""), validate=True)
+    except Exception as exc:
+        raise ValueError("上传图片数据无效。") from exc
+    if len(blob) > 25 * 1024 * 1024:
+        raise ValueError("单张上传图片不能超过 25 MB。")
+    valid = (blob.startswith(b"\x89PNG\r\n\x1a\n") or blob.startswith(b"\xff\xd8\xff") or
+             blob.startswith(b"RIFF") and blob[8:12] == b"WEBP")
+    if not valid:
+        raise ValueError("文件内容不是有效的 PNG、JPG 或 WebP 图片。")
+    if prefix in {"reference", "source"}:
+        asset_dir = OUT / ".history_assets"
+        asset_dir.mkdir(parents=True, exist_ok=True)
+        path = asset_dir / f"{prefix}_{uuid.uuid4().hex}{suffix}"
+    else:
+        path = OUT / f".{prefix}_{threading.get_ident()}_{uuid.uuid4().hex}{suffix}"
+    path.write_bytes(blob)
+    return path
 
 
 def unique_target(prefix: str) -> Path:
@@ -137,6 +218,15 @@ class Handler(BaseHTTPRequestHandler):
                     images.append({"name": path.name, "url": f"/output/{path.name}", "bytes": path.stat().st_size})
             self._json(200, {"images": images[:100]})
             return
+        if parsed.path == "/api/history":
+            name = parse_qs(parsed.query).get("name", [""])[0]
+            try:
+                history = history_chain(name) if name else []
+            except ValueError as exc:
+                self._json(400, {"ok": False, "error": str(exc)})
+                return
+            self._json(200, {"history": history})
+            return
         if parsed.path.startswith("/output/"):
             name = unquote(parsed.path.removeprefix("/output/"))
             if Path(name).name != name:
@@ -177,10 +267,21 @@ class Handler(BaseHTTPRequestHandler):
                 prompt = str(data.get("prompt", "")).strip()
                 if not prompt:
                     raise ValueError("请先填写图片描述。")
+                reference_uploads = data.get("references", [])
+                if not isinstance(reference_uploads, list) or len(reference_uploads) > 10:
+                    raise ValueError("参考图片最多可选择 10 张。")
+                if any(not isinstance(item, dict) for item in reference_uploads):
+                    raise ValueError("参考图片数据无效。")
+                OUT.mkdir(parents=True, exist_ok=True)
+                references = [decode_upload(item, "reference") for item in reference_uploads]
                 with LOCK:
                     target = unique_target("generated")
-                    path, status = generate(prompt, target)
-                record_image(path, prompt, "generate")
+                    if references:
+                        request_prompt = "请以提供的参考图片为视觉参考，创作一张新的图片。不要简单复制参考图；根据以下要求生成：\n" + prompt
+                        path, status = edit(request_prompt, references, target)
+                    else:
+                        path, status = generate(prompt, target)
+                record_image(path, prompt, "generate", references=references)
                 self._json(200, {"ok": True, "name": path.name, "url": f"/output/{path.name}", "http_status": status})
                 return
             if self.path == "/api/edit":
@@ -191,6 +292,7 @@ class Handler(BaseHTTPRequestHandler):
                 uploaded = data.get("image")
                 if bool(chosen) == bool(uploaded):
                     raise ValueError("请选择图库中的一张图片，或上传一张图片。")
+                OUT.mkdir(parents=True, exist_ok=True)
                 if chosen:
                     name = Path(str(chosen)).name
                     source = (OUT / name).resolve()
@@ -198,29 +300,24 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("所选图片无效，请刷新图库后重试。")
                     inputs = [source]
                 else:
-                    filename = Path(str(uploaded.get("name", "upload.png"))).name
-                    suffix = Path(filename).suffix.lower()
-                    if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
-                        raise ValueError("只支持 PNG、JPG 或 WebP 图片。")
-                    try:
-                        blob = base64.b64decode(uploaded.get("data", ""), validate=True)
-                    except Exception as exc:
-                        raise ValueError("上传图片数据无效。") from exc
-                    if len(blob) > 25 * 1024 * 1024:
-                        raise ValueError("单张上传图片不能超过 25 MB。")
-                    if not (blob.startswith(b"\x89PNG\r\n\x1a\n") or blob.startswith(b"\xff\xd8\xff") or blob.startswith(b"RIFF") and blob[8:12] == b"WEBP"):
-                        raise ValueError("文件内容不是有效的 PNG、JPG 或 WebP 图片。")
-                    temp = OUT / f".upload_{threading.get_ident()}{suffix}"
-                    temp.write_bytes(blob)
-                    inputs = [temp]
-                try:
-                    with LOCK:
-                        target = unique_target("edited")
-                        path, status = edit(prompt, inputs, target)
-                finally:
-                    if uploaded:
-                        temp.unlink(missing_ok=True)
-                record_image(path, prompt, "edit")
+                    source = decode_upload(uploaded, "source")
+                    inputs = [source]
+                reference_uploads = data.get("references", [])
+                if not isinstance(reference_uploads, list) or len(reference_uploads) > 10:
+                    raise ValueError("参考图片最多可选择 10 张。")
+                if any(not isinstance(item, dict) for item in reference_uploads):
+                    raise ValueError("参考图片数据无效。")
+                reference_paths = [decode_upload(item, "reference") for item in reference_uploads]
+                inputs.extend(reference_paths)
+                context = history_context(source)
+                request_prompt = prompt
+                if context:
+                    request_prompt = "此前修改记录（仅作为保持设计连续性的背景，当前要求优先）：\n" + "\n".join(context) + "\n\n当前编辑要求：" + prompt
+                with LOCK:
+                    target = unique_target("edited")
+                    path, status = edit(request_prompt, inputs, target)
+                sources = [source]
+                record_image(path, prompt, "edit", sources=sources, references=reference_paths, context=context)
                 self._json(200, {"ok": True, "name": path.name, "url": f"/output/{path.name}", "http_status": status})
                 return
             self.send_error(404)
