@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 
-from image_agent import conversational_intent, edit_request, select_image
+from image_agent import conversational_intent, edit_request, select_image, trace_context
 
 
 class ImageRoutingTests(unittest.TestCase):
@@ -29,6 +29,19 @@ class ImageRoutingTests(unittest.TestCase):
     def test_natural_language_generation_and_edit(self):
         self.assertEqual(conversational_intent("生成一张太空站概念图")[0], "generate")
         self.assertEqual(conversational_intent("把上一张改成水彩画")[0], "edit")
+
+    def test_reference_and_history_commands(self):
+        self.assertEqual(conversational_intent("/参考")[0], "attach")
+        self.assertEqual(conversational_intent("/history latest.png"), ("history", "latest.png"))
+
+    def test_trace_context_walks_source_images(self):
+        child = Path("child.png")
+        parent = Path("parent.png")
+        rows = [
+            {"path": str(parent.resolve()), "prompt": "改成蓝色", "sources": []},
+            {"path": str(child.resolve()), "prompt": "加上灯光", "sources": [str(parent.resolve())]},
+        ]
+        self.assertEqual(trace_context([child], rows), ["child.png: 加上灯光", "parent.png: 改成蓝色"])
 
 
 if __name__ == "__main__":
