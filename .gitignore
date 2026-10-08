@@ -1,0 +1,19 @@
+# Local credentials and environment
+.env
+.env.*
+!.env.example
+
+# Generated images and per-user history
+output/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+
+# IDE/OS noise
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini

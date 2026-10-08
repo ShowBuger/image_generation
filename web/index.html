@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FoxCode 图片工作台</title>
+  <style>
+    :root{color-scheme:dark;--bg:#0b1020;--panel:#121a2b;--panel2:#172238;--line:#28354d;--text:#edf3ff;--muted:#9cabc2;--accent:#7c9cff;--accent2:#a38bfa;--good:#5dd6a0;--bad:#ff8292}
+    *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 10% -10%,#1a2a50 0,transparent 40%),var(--bg);font:15px/1.5 system-ui,"Segoe UI",sans-serif;color:var(--text)}button,input,textarea,select{font:inherit}button{cursor:pointer}
+    .shell{max-width:1440px;margin:auto;padding:32px 26px 60px}.head{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:25px}.brand{display:flex;gap:14px;align-items:center}.logo{width:46px;height:46px;border-radius:15px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:grid;place-items:center;font-size:24px;box-shadow:0 10px 35px #6e82ff55}.title{font-size:23px;font-weight:750;letter-spacing:.2px}.subtitle{color:var(--muted);font-size:13px}.local{color:#b7c6dc;font-size:12px;border:1px solid var(--line);border-radius:99px;padding:7px 11px;background:#ffffff08}
+    .grid{display:grid;grid-template-columns:minmax(330px,420px) minmax(0,1fr);gap:20px;align-items:start}.left{display:grid;gap:16px}.card{border:1px solid var(--line);background:linear-gradient(160deg,#151f33f2,#101827f5);border-radius:18px;padding:19px;box-shadow:0 16px 48px #0003}.card h2{font-size:15px;margin:0 0 15px;display:flex;align-items:center;gap:9px}.num{width:23px;height:23px;border-radius:8px;background:#8099ff22;color:#aebfff;display:grid;place-items:center;font-size:12px}
+    .switch{display:grid;grid-template-columns:1fr 1fr;background:#0b1220;padding:4px;border:1px solid var(--line);border-radius:12px;gap:4px}.switch button{border:0;border-radius:9px;background:transparent;color:var(--muted);padding:10px}.switch button.active{background:linear-gradient(120deg,#607cff,#8b72ef);color:white;box-shadow:0 5px 18px #677dff45}
+    label{display:block;font-size:12px;color:#bdc9dc;margin:13px 0 6px}.hint{color:var(--muted);font-size:11px;margin-top:5px}.field,input,textarea,select{width:100%;border:1px solid var(--line);background:#0b1220;color:var(--text);border-radius:10px;padding:10px 12px;outline:none}.field:focus,input:focus,textarea:focus,select:focus{border-color:#8098ff;box-shadow:0 0 0 3px #8098ff20}textarea{resize:vertical;min-height:116px}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}.secret{display:flex;gap:8px}.secret input{flex:1}.smallbtn{border:1px solid var(--line);color:var(--text);background:#ffffff08;border-radius:10px;padding:0 12px}.save{margin-top:13px;width:100%;border:1px solid #667dde88;border-radius:10px;background:#5066bd22;color:#c8d4ff;padding:10px}.keystate{font-size:11px;color:var(--muted);margin-top:8px}.pathrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .primary{width:100%;border:0;border-radius:11px;padding:13px;background:linear-gradient(110deg,#6383ff,#926ef1);color:white;font-weight:700;box-shadow:0 9px 25px #7480ff35}.primary:disabled{opacity:.6;cursor:wait}.status{min-height:22px;margin-top:10px;color:var(--muted);font-size:12px}.status.error{color:var(--bad)}.status.ok{color:var(--good)}
+    .resultcard{min-height:560px}.resulttop{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.resulttop h2{margin:0;font-size:16px}.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px}.thumb{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0a1020;position:relative;cursor:pointer}.thumb img{width:100%;height:135px;object-fit:cover;display:block}.thumb .meta{padding:8px 9px;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.thumb.selected{outline:2px solid var(--accent);border-color:var(--accent)}.thumb .pick{position:absolute;right:8px;top:8px;width:21px;height:21px;accent-color:#7e95ff}.preview{display:none;margin-top:15px;border:1px solid var(--line);border-radius:14px;background:#080d17;padding:10px}.preview img{display:block;max-height:640px;max-width:100%;margin:auto;object-fit:contain;border-radius:9px}.empty{min-height:420px;display:grid;place-items:center;text-align:center;color:var(--muted);border:1px dashed #34415a;border-radius:15px;padding:30px}.empty .big{font-size:50px;opacity:.55}.selectedline{font-size:12px;color:#b9c7dc;min-height:20px;margin:10px 0}.uploadbox{border:1px dashed #394967;border-radius:11px;padding:12px;background:#ffffff04}.uploadbox input{padding:7px}.modeonly{display:none}.modeonly.show{display:block}.spinner{display:inline-block;width:13px;height:13px;border:2px solid #ffffff55;border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:7px}@keyframes spin{to{transform:rotate(360deg)}}
+    @media(max-width:850px){.grid{grid-template-columns:1fr}.resultcard{min-height:400px}.head{align-items:flex-start}.shell{padding:20px 13px 40px}}@media(max-width:430px){.row,.row3,.pathrow{grid-template-columns:1fr}.local{display:none}}
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="head"><div class="brand"><div class="logo">✦</div><div><div class="title">图片工作台</div><div class="subtitle">FoxCode 图像生成与编辑</div></div></div><div class="local">● 本机运行 · 密钥保存在本地 .env</div></header>
+  <div class="grid">
+    <section class="left">
+      <div class="card">
+        <h2><span class="num">1</span>选择操作</h2>
+        <div class="switch"><button id="genTab" class="active" type="button">✦ 生成图片</button><button id="editTab" type="button">✎ 编辑图片</button></div>
+        <label for="prompt">描述你想要的画面或修改</label>
+        <textarea id="prompt" placeholder="例如：一台科幻风格的桌面电脑，蓝紫霓虹灯光，电影级产品摄影"></textarea>
+        <div class="modeonly" id="editControls">
+          <label>选择要编辑的原图</label>
+          <div class="uploadbox"><input id="upload" type="file" accept="image/png,image/jpeg,image/webp"><div class="hint">上传一张 PNG、JPG 或 WebP，或点击右侧图库中的图片</div></div>
+          <div class="selectedline" id="selectedLine">尚未选择原图</div>
+        </div>
+        <div class="row" style="margin-top:13px">
+          <div><label for="size">画布尺寸</label><select id="size"><option>1536x1024</option><option>1024x1024</option><option>1024x1536</option></select></div>
+          <div><label for="quality">质量</label><select id="quality"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></div>
+        </div>
+        <button class="primary" id="run" style="margin-top:17px">生成图片</button>
+        <div class="status" id="status"></div>
+      </div>
+      <div class="card">
+        <h2><span class="num">2</span>模型与 API 配置</h2>
+        <label for="model">模型</label>
+        <select id="model"><option value="gpt-image-2.5">gpt-image-2.5</option><option value="gpt-image-2">gpt-image-2</option><option value="custom">自定义模型…</option></select>
+        <input id="customModel" class="field" style="display:none;margin-top:8px" placeholder="输入中转站模型名">
+        <label for="baseUrl">API 基础地址</label><input id="baseUrl" spellcheck="false" placeholder="https://dm-fox.rjj.cc/codex">
+        <div class="pathrow"><div><label for="genPath">生成接口路径</label><input id="genPath" spellcheck="false" value="/v1/images/generations"></div><div><label for="editPath">编辑接口路径</label><input id="editPath" spellcheck="false" value="/v1/images/edits"></div></div>
+        <label for="apiKey">API Key</label><div class="secret"><input id="apiKey" type="password" autocomplete="new-password" placeholder="留空则保留已保存的 Key"><button class="smallbtn" id="showKey" type="button">显示</button></div>
+        <div class="keystate" id="keyState">正在读取配置…</div>
+        <button class="save" id="saveConfig" type="button">保存模型与 API 配置</button>
+      </div>
+    </section>
+    <section class="card resultcard">
+      <div class="resulttop"><h2>图片图库</h2><button class="smallbtn" id="refresh" type="button" style="padding:8px 11px">↻ 刷新</button></div>
+      <div class="hint" style="margin:-6px 0 12px">编辑模式下点击一张图片即可选作原图；新结果会自动加入图库。</div>
+      <div id="gallery" class="gallery"></div>
+      <div class="preview" id="preview"><img id="previewImage" alt="生成或编辑结果"><div class="hint" id="previewName" style="text-align:center;padding:8px 0 2px"></div></div>
+    </section>
+  </div>
+</main>
+<script>
+  const $=id=>document.getElementById(id);let mode='generate',selectedName='',uploadedData=null,images=[];
+  function setMode(next){mode=next;$('genTab').classList.toggle('active',mode==='generate');$('editTab').classList.toggle('active',mode==='edit');$('editControls').classList.toggle('show',mode==='edit');$('run').textContent=mode==='generate'?'生成图片':'编辑并另存';$('prompt').placeholder=mode==='generate'?'例如：一台科幻风格的桌面电脑，蓝紫霓虹灯光，电影级产品摄影':'例如：把背景改成夜景，主体和构图保持不变';}
+  function setStatus(text,type=''){const el=$('status');el.textContent=text;el.className='status '+type;}
+  async function api(path,body){const response=await fetch(path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok||data.ok===false)throw new Error(data.error||`HTTP ${response.status}`);return data;}
+  function modelValue(){return $('model').value==='custom'?$('customModel').value.trim():$('model').value;}
+  function syncModelUI(value){const known=['gpt-image-2','gpt-image-2.5'];if(known.includes(value))$('model').value=value;else{$('model').value='custom';$('customModel').style.display='block';$('customModel').value=value||'';}}
+  async function loadConfig(){try{const c=await api('/api/config');$('baseUrl').value=c.base_url;$('genPath').value=c.generation_path;$('editPath').value=c.edit_path;$('size').value=c.size;$('quality').value=c.quality;syncModelUI(c.model);$('keyState').textContent=c.api_key_set?'API Key 已配置。输入新 Key 可替换；留空会保留。':'尚未配置 API Key。';}catch(e){$('keyState').textContent='读取配置失败：'+e.message;}}
+  async function saveConfig(){const payload={IMAGE_API_BASE_URL:$('baseUrl').value,IMAGE_API_PATH:$('genPath').value,IMAGE_EDIT_API_PATH:$('editPath').value,IMAGE_MODEL:modelValue(),IMAGE_SIZE:$('size').value,IMAGE_QUALITY:$('quality').value,IMAGE_COUNT:'1',api_key:$('apiKey').value};try{await api('/api/config',payload);$('apiKey').value='';$('keyState').textContent='配置已保存到本机 .env。';setStatus('配置已保存。','ok');}catch(e){setStatus(e.message,'error');}}
+  function renderGallery(){const box=$('gallery');box.replaceChildren();if(!images.length){box.innerHTML='<div class="empty" style="grid-column:1/-1;min-height:300px"><div><div class="big">▧</div><div>还没有图片，生成一张开始吧</div></div></div>';return;}for(const img of images){const card=document.createElement('div');card.className='thumb'+(selectedName===img.name?' selected':'');card.title=img.name;const el=document.createElement('img');el.src=img.url+'?v='+encodeURIComponent(img.bytes);el.alt=img.name;const meta=document.createElement('div');meta.className='meta';meta.textContent=img.name;card.append(el,meta);card.onclick=()=>{if(mode==='edit'){selectedName=img.name;uploadedData=null;$('upload').value='';$('selectedLine').textContent='已选择图库图片：'+img.name;renderGallery();}};box.append(card);}}
+  async function refreshGallery(){try{const d=await api('/api/images');images=d.images;renderGallery();}catch(e){setStatus('图库加载失败：'+e.message,'error');}}
+  $('upload').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;if(file.size>25*1024*1024){setStatus('图片不能超过 25 MB。','error');e.target.value='';return;}const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result.split(',')[1]);reader.onerror=reject;reader.readAsDataURL(file);});uploadedData={name:file.name,data};selectedName='';$('selectedLine').textContent=`已上传原图：${file.name}（${Math.round(file.size/1024)} KB）`;renderGallery();});
+  $('run').onclick=async()=>{const prompt=$('prompt').value.trim();if(!prompt){setStatus('请先填写画面描述或编辑要求。','error');return;}if(mode==='edit'&&!selectedName&&!uploadedData){setStatus('请上传原图或点击图库中的图片。','error');return;}const button=$('run');button.disabled=true;button.innerHTML='<span class="spinner"></span>正在处理…';setStatus(mode==='generate'?'正在生成图片，通常需要几十秒…':'正在编辑图片，原图会保留…');try{const result=mode==='generate'?await api('/api/generate',{prompt}):await api('/api/edit',{prompt,image_name:uploadedData?null:selectedName,image:uploadedData});$('preview').style.display='block';$('previewImage').src=result.url+'?t='+Date.now();$('previewName').textContent=result.name+' · HTTP '+result.http_status;setStatus(mode==='generate'?'图片生成完成。':'图片编辑完成，原图已保留。','ok');$('prompt').value='';selectedName='';uploadedData=null;$('upload').value='';$('selectedLine').textContent='尚未选择原图';await refreshGallery();}catch(e){setStatus(e.message,'error');}finally{button.disabled=false;button.textContent=mode==='generate'?'生成图片':'编辑并另存';}};
+  $('genTab').onclick=()=>setMode('generate');$('editTab').onclick=()=>setMode('edit');$('saveConfig').onclick=saveConfig;$('refresh').onclick=refreshGallery;$('model').onchange=()=>{$('customModel').style.display=$('model').value==='custom'?'block':'none';};$('showKey').onclick=()=>{$('apiKey').type=$('apiKey').type==='password'?'text':'password';$('showKey').textContent=$('apiKey').type==='password'?'显示':'隐藏';};
+  loadConfig();refreshGallery();
+</script>
+</body>
+</html>
